@@ -1,0 +1,3 @@
+[submodule "py/xnb"]
+	path = py/xnb
+	url = https://github.com/roysmeding/pyxnb

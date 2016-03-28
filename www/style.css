@@ -1,0 +1,6 @@
+div#renderer {
+    border: 1px solid black;
+    width: 960px;
+    height: 480px;
+    margin: 20px auto;
+}
