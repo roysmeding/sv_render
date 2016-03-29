@@ -3,11 +3,12 @@
 const VIEWPORT_WIDTH  = 960,
       VIEWPORT_HEIGHT = 480;
 
+const TILE_WIDTH  = 16,
+      TILE_HEIGHT = 16;
+
 const ZOOM_FACTOR = 1.05;
 
 var renderer = null;
-var canvas   = null;
-var map      = null;
 
 var viewport = {
 		'tx': 0,
@@ -15,41 +16,60 @@ var viewport = {
 		'zoom': 1,
 	};
 
-function resolveTSSrc(src) {
-	return 'tilesheets/'+src+'.png';
+function xhr(url, callback) {
+	var oReq = new XMLHttpRequest();
+	oReq.addEventListener("load", callback);
+	oReq.open("GET", url);
+	oReq.send();
 }
 
 function tilesheetsLoaded() {
 	console.log("All tilesheets loaded!");
-	redraw();
+	request_redraw();
 }
 
 function checkLoaded() {
-	if(!map.can_be_loaded || map.has_loaded)
+	if(!renderer.can_be_loaded || renderer.has_loaded)
 		return;
-	for(let tilesheet of map.tilesheets) {
-		if(!tilesheet.loaded)
+
+	for(let key in renderer.tilesheets) {
+		if(!renderer.tilesheets.hasOwnProperty(key))
+			continue;
+		let ts = renderer.tilesheets[key];
+		if(!ts.loaded)
 			return;
 	}
 
 	tilesheetsLoaded();
-	map.has_loaded = true;
+	renderer.has_loaded = true;
 }
 
 function drawTile(ctx, tile, col, row) {
-	let scol =            tile.idx % tile.ts.sheet_size[0],
-	    srow = Math.floor(tile.idx / tile.ts.sheet_size[0]);
+	let ts = renderer.tilesheets[tile.ts];
 
-	let sw   = tile.ts.tile_size[0],
-	    sh   = tile.ts.tile_size[1];
+	let sx, sy, w, h;
 
-	let sx   = scol*sw,
-	    sy   = srow*sh;
+	if(ts.sprites) {
+		let sprite = ts.sprites[tile.idx];
+		sx = sprite[0];
+		sy = sprite[1];
+		w  = sprite[2];
+		h  = sprite[3];
+	} else {
+		let scol =            tile.idx % ts.sheet_size[0],
+		    srow = Math.floor(tile.idx / ts.sheet_size[0]);
 
-	let dx   = col*sw,
-	    dy   = row*sh;
+		w  = ts.tile_size[0];
+		h  = ts.tile_size[1];
 
-	ctx.drawImage(tile.ts.img, sx, sy, sw, sh, dx, dy, sw, sh);
+		sx = scol*w;
+		sy = srow*h;
+	}
+
+	let dx = col*TILE_WIDTH,
+	    dy = row*TILE_HEIGHT - (h -   TILE_HEIGHT);
+
+	ctx.drawImage(ts.img, sx, sy, w, h, dx, dy, w, h);
 }
 
 function redrawLayer(layer) {
@@ -61,10 +81,11 @@ function redrawLayer(layer) {
 				drawTile(layer.ctx, tile, col, row);
 		});
 	});
+	layer.dirty = false;
 }
 
 function drawLayer(ctx, layer) {
-	if(!layer.visible) return;
+	if(!layer.vis) return;
 	if(layer.dirty) redrawLayer(layer);
 
 	let sx = 0,
@@ -83,80 +104,117 @@ function drawLayer(ctx, layer) {
 }
 
 function drawObjects(ctx, objs) {
-	map.obj_ctx.clearRect(0,0,map.obj_canvas.width,map.obj_canvas.height);
-	for(let o of objs) {
-		drawTile(map.obj_ctx, o, o.pos[0], o.pos[1]);
+	if(renderer.objs_dirty) {
+		renderer.map.objects.sort(function(a,b) { return a.pos[1]-b.pos[1]; });
+
+		renderer.obj_ctx.clearRect(0,0,renderer.obj_canvas.width,renderer.obj_canvas.height);
+		for(let o of objs) {
+			drawTile(renderer.obj_ctx, o, o.pos[0], o.pos[1]);
+		}
+		renderer.objs_dirty = false;
 	}
 
 	let sx = 0,
 	    sy = 0;
 
-	let sw = map.obj_canvas.width,
-	    sh = map.obj_canvas.height;
+	let sw = renderer.obj_canvas.width,
+	    sh = renderer.obj_canvas.height;
 
 	let dx = viewport.tx,
 	    dy = viewport.ty;
 
-	let dw = map.obj_canvas.width  * viewport.zoom,
-	    dh = map.obj_canvas.height * viewport.zoom;
+	let dw = renderer.obj_canvas.width  * viewport.zoom,
+	    dh = renderer.obj_canvas.height * viewport.zoom;
 
-	ctx.drawImage(map.obj_canvas, sx, sy, sw, sh, dx, dy, dw, dh);
+	ctx.drawImage(renderer.obj_canvas, sx, sy, sw, sh, dx, dy, dw, dh);
 }
 
 function drawMap(ctx, map) {
-	ctx.clearRect(0,0,canvas.width,canvas.height);
-	for(let layer of map.layers) {
-		drawLayer(ctx, layer);
-	}
-	drawObjects(ctx, map.objects);
+	ctx.clearRect(0,0,renderer.canvas.width,renderer.canvas.height);
+
+	for(let layer of renderer.map.layers)
+		if(layer.depth <= 0)
+			drawLayer(ctx, layer);
+
+	drawObjects(ctx, renderer.map.objects);
+
+	for(let layer of renderer.map.layers)
+		if(layer.depth > 0)
+			drawLayer(ctx, layer);
 }
+
+var redraw_pending = false;
 
 function redraw() {
-	let ctx = canvas.getContext("2d");
-	drawMap(ctx, map);
+	let ctx = renderer.canvas.getContext("2d");
+	drawMap(ctx, renderer);
+	redraw_pending = false;
 }
 
-function loadTilesheet(ts) {
-	ts.loaded = true;
 
+function request_redraw() {
+	if(!redraw_pending) {
+		redraw_pending = true;
+		window.requestAnimationFrame(redraw);
+	}
+}
+
+function tilesheetMetaLoaded(ts) {
+	return function() {
+		if(!(this.status >= 200 && this.status < 300))
+			return;
+		let r_ts = JSON.parse(this.responseText);
+
+		if(r_ts.sprites) {
+			ts.sprites    = r_ts.sprites;
+		} else {
+			ts.tile_size  = r_ts.tile_size;
+			ts.sheet_size = r_ts.sheet_size;
+		}
+
+		ts.img = new Image();
+		ts.img.addEventListener('load', function() { tilesheetImgLoaded(ts); });
+		ts.img.src = "assets/"+r_ts.img_src;
+	}
+}
+
+function tilesheetImgLoaded(ts) {
+	ts.loaded = true;
 	checkLoaded();
 }
 
-function loadMap() {
-	let r_map = JSON.parse(this.responseText);
-
-	map = new Object();
-	map.can_be_loaded = false;
-	map.has_loaded = false;
-
-	map.tilesheets = r_map.tilesheets;
-	for(let tilesheet of map.tilesheets) {
-		console.log("Loading tilesheet '"+tilesheet.src+"'");
-
-		tilesheet.loaded = false;
-		tilesheet.img = new Image();
-		tilesheet.img.addEventListener('load', function() { loadTilesheet(tilesheet); });
-		tilesheet.img.src = resolveTSSrc(tilesheet.src);
+function loadTilesheet(src) {
+	if(renderer.tilesheets.hasOwnProperty(src)) {
+		console.log("Already loaded tilesheet '"+src+"'");
+		return;
 	}
 
+	console.log("Loading tilesheet '"+src+"'");
 
-	let object_ts = new Object();
-	object_ts.tile_size  = [16,16];
-	object_ts.sheet_size = [24,33];
-	object_ts.src = 'springobjects';
-	object_ts.loaded = false;
-	object_ts.img = new Image();
-	object_ts.img.addEventListener('load', function() { loadTilesheet(object_ts); });
-	object_ts.img.src = resolveTSSrc(object_ts.src);
+	let ts = new Object();
+	ts.src = src;
+	ts.loaded = false;
 
-	map.objects = r_map.objects;
+	renderer.tilesheets[ts.src] = ts;
 
-	for(let obj of map.objects) {
-		obj.ts = object_ts;
-	}
+	let json_name = 'tilesheets/'+src+'.json';
+	xhr(json_name, tilesheetMetaLoaded(ts));
+}
 
-	map.properties = r_map.properties;
-	map.layers = new Array();
+function mapsLoaded() {
+	let r_maps = JSON.parse(this.responseText);
+
+	let r_map = r_maps[renderer.el.dataset.loc];
+
+	renderer.map = new Object();
+	renderer.can_be_loaded = false;
+	renderer.has_loaded = false;
+
+	for(let ts of r_map.tilesheets)
+		loadTilesheet(ts);
+
+	renderer.map.properties = r_map.properties;
+	renderer.map.layers = new Array();
 
 	let max_layerwidth  = 0,
 	    max_layerheight = 0;
@@ -165,7 +223,8 @@ function loadMap() {
 		let layer = new Object();
 		layer.size      = r_layer.size;
 		layer.tile_size = r_layer.tile_size;
-		layer.visible   = true;
+		layer.vis       = (r_layer.vis === undefined) ? true : r_layer.vis;
+		layer.depth     = r_layer.depth;
 
 		layer.tiles = new Array(r_layer.size[1]);
 		let row = 0;
@@ -181,7 +240,7 @@ function loadMap() {
 					if(item == -1)
 						prev_tile = null;
 					else
-						prev_tile = { 'idx': item, 'ts': map.tilesheets[ts] };
+						prev_tile = { 'idx': item, 'ts': r_map.tilesheets[ts] };
 					layer.tiles[row][col++] = prev_tile;
 				} else if(item.rep !== undefined) {
 					for(let i = 0; i < (item.rep); i++) {
@@ -206,18 +265,72 @@ function loadMap() {
 
 		layer.ctx = layer.canvas.getContext('2d');
 
-		map.layers.push(layer);
+		renderer.map.layers.push(layer);
 	}
 
+	renderer.obj_canvas = document.createElement('canvas');
 
-	map.obj_canvas = document.createElement('canvas');
-	map.obj_canvas.width  = max_layerwidth;
-	map.obj_canvas.height = max_layerheight;
-	map.obj_ctx = map.obj_canvas.getContext('2d')
+	renderer.obj_canvas.width  = max_layerwidth;
+	renderer.obj_canvas.height = max_layerheight;
 
-	map.can_be_loaded = true;
+	renderer.obj_ctx = renderer.obj_canvas.getContext('2d');
+	renderer.objs_dirty = true;
+
+	renderer.can_be_loaded = true;
 	checkLoaded();
 }
+
+function saveLoaded() {
+	let r_save = JSON.parse(this.responseText);
+	console.log(r_save);
+
+	for(let ts of r_save.tilesheets) {
+		loadTilesheet(ts);
+	}
+
+	let r_loc = undefined;
+	for(let loc of r_save.locations) {
+		if(loc.name == renderer.el.dataset.loc)
+			r_loc = loc;
+	}
+
+	renderer.map.objects = [];
+	for(let item of r_loc.items) {
+		let obj = new Object();
+		obj.ts  = r_save.tilesheets[item.ts];
+		obj.idx = item.idx;
+		obj.pos = item.pos;
+
+		renderer.map.objects.push(obj);
+	}
+
+	for(let building of r_loc.buildings) {
+		let obj = new Object();
+		obj.ts  = r_save.tilesheets[building.ts];
+		obj.idx = building.idx;
+		obj.pos = [
+				building.pos[0],
+				building.pos[1] + building.size[1] - 1
+			];
+
+		renderer.map.objects.push(obj);
+	}
+
+	for(let feature of r_loc.features) {
+		if(feature === null)
+			continue;
+
+		let obj = new Object();
+		obj.ts  = r_save.tilesheets[feature.ts];
+		obj.idx = feature.idx;
+		obj.pos = feature.pos;
+
+		renderer.map.objects.push(obj);
+	}
+
+	renderer.objs_dirty = true;
+}
+
 
 function mouseMove(e) {
 	var dx = e.movementX    ||
@@ -231,7 +344,7 @@ function mouseMove(e) {
 	viewport.tx += dx;
 	viewport.ty += dy;
 
-	window.requestAnimationFrame(redraw);
+	request_redraw();
 	e.preventDefault();
 }
 
@@ -239,7 +352,7 @@ function wheel(e) {
 	let zoom_amount = Math.pow(ZOOM_FACTOR, -e.deltaY/100.);
 	viewport.zoom *= zoom_amount;
 
-	let b = canvas.getBoundingClientRect();
+	let b = renderer.canvas.getBoundingClientRect();
 
 	// position of mouse relative to (0,0) in layer coords
 	let relx = e.clientX - b.left - viewport.tx,
@@ -248,7 +361,7 @@ function wheel(e) {
 	viewport.tx -= (zoom_amount-1) * relx;
 	viewport.ty -= (zoom_amount-1) * rely;
 
-	window.requestAnimationFrame(redraw);
+	request_redraw();
 	e.preventDefault();
 }
 
@@ -264,21 +377,22 @@ function mouseUp(e) {
 }
 
 function load_renderer() {
-	renderer = document.getElementById("renderer");
+	renderer = new Object();
+	renderer.el = document.getElementById("renderer");
 
-	canvas = document.createElement("canvas");
-	canvas.width  = VIEWPORT_WIDTH;
-	canvas.height = VIEWPORT_HEIGHT;
+	renderer.canvas = document.createElement("canvas");
+	renderer.canvas.width  = VIEWPORT_WIDTH;
+	renderer.canvas.height = VIEWPORT_HEIGHT;
 
-	canvas.addEventListener("mousedown", mouseDown, true);
-	canvas.addEventListener("wheel", wheel, true);
+	renderer.canvas.addEventListener("mousedown", mouseDown, true);
+	renderer.canvas.addEventListener("wheel", wheel, true);
 
-	renderer.appendChild(canvas);
+	renderer.el.appendChild(renderer.canvas);
 
-	var oReq = new XMLHttpRequest();
-	oReq.addEventListener("load", loadMap);
-	oReq.open("GET", renderer.dataset.map);
-	oReq.send();
+	renderer.tilesheets = {};
+
+	xhr(renderer.el.dataset.maps, mapsLoaded);
+	xhr(renderer.el.dataset.save, saveLoaded);
 }
 
 window.addEventListener("load", load_renderer);
