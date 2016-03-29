@@ -50,8 +50,9 @@ class Building(object):
         self.tilesWide = int(el.find('tilesWide').text)
         self.tilesHigh = int(el.find('tilesHigh').text)
 
+names = set()
 class Feature(object):
-    def __init__(self, el):
+    def __init__(self, el, connectables):
         self.pos = Position.fromElement(el.find('key/Vector2'))
         feat = el.find('value/TerrainFeature')
         self.type = feat.get('{http://www.w3.org/2001/XMLSchema-instance}type')
@@ -71,6 +72,12 @@ class Feature(object):
         elif self.type == 'Flooring':
             self.whichFloor = int(feat.find('whichFloor').text)
             self.whichView  = int(feat.find('whichView').text)
+            key = 'floor%d' % self.whichFloor
+            try:
+                position = (self.pos.x, self.pos.y)
+                connectables[key].append(position)
+            except:
+                connectables[key] = [position]
 
         else:
             print("Unhandled terrain feature type {}".format(self.type))
@@ -82,7 +89,7 @@ class Location(object):
         self.characters = [Character(c) for c in el.findall('characters/NPC')]
         self.items      = [Item(i, self.connectables)      for i in el.findall('objects/item/value/Object')]
         self.buildings  = [Building(b)  for b in el.findall('buildings/Building')]
-        self.features   = [Feature(f)   for f in el.findall('terrainFeatures/item')]
+        self.features   = [Feature(f, self.connectables)   for f in el.findall('terrainFeatures/item')]
 
 class Date(object):
     def __init__(self, year, season, day):
@@ -145,6 +152,28 @@ def getAny(posdicts, possiblekeys, xy):
             return True
     return False
 
+
+# to lookup the correct floor tile from connections
+# up, down, left, right
+tilePositions = {
+    0b0000: (0, 0),
+    0b0001: (3, 3),
+    0b0010: (1, 3),
+    0b0011: (2, 3),
+    0b0100: (0, 1),
+    0b0101: (1, 0),
+    0b0110: (3, 0),
+    0b0111: (2, 0),
+    0b1000: (0, 3),
+    0b1001: (1, 2),
+    0b1010: (3, 2),
+    0b1011: (2, 2),
+    0b1100: (0, 2),
+    0b1101: (1, 1),
+    0b1110: (3, 1),
+    0b1111: (2, 1)
+}
+
 def calculateConnectables(connectables):
     result = {}
     posdicts = {} # save for gate logic.
@@ -155,16 +184,18 @@ def calculateConnectables(connectables):
         positions = connectables[type_] # array of all positions each connectable obj is at
         posdict = SparsePositions()
         posdicts[type_] = posdict
-        if type_.startswith("fence"):
-            # first build the lookup table
-            for pos in positions:
-                posdict.add(pos)
+        # first build the lookup table
+        for pos in positions:
+            posdict.add(pos)
+        for pos in positions:
+            x, y = pos
             # next, check connections.
-            for pos in positions:
-                x, y = pos
-                hasUp = posdict.get((x, y-1))
-                hasLeft = posdict.get((x-1, y))
-                hasRight = posdict.get((x+1, y))
+            hasUp = posdict.get((x, y-1))
+            hasLeft = posdict.get((x-1, y))
+            hasRight = posdict.get((x+1, y))
+            hasDown = posdict.get((x, y+1))
+
+            if type_.startswith("fence"):
                 if hasLeft and hasRight:
                     # surprising, game does not care about up connections in this case
                     result[type_][pos] = 7
@@ -183,12 +214,31 @@ def calculateConnectables(connectables):
                         result[type_][pos] = 0
                     else:
                         result[type_][pos] = 5
-
-        else:
-            print("Did not implement connections for %s yet" % type_)
-            result[type_] = {}
-            for pos in connections[type_]:
-                result[pos] = 0
+            elif type_.startswith("floor"):
+                # represent state as one number for convenience
+                state = 0
+                if hasUp:
+                    state += 8
+                if hasDown:
+                    state += 4
+                if hasLeft:
+                    state += 2
+                if hasRight:
+                    state += 1
+                # tilex/y are because the sheet layout of floors are weird.
+                # initialize to the topleft of sheet section for floor.
+                floornum = int(type_[5:])
+                tilex = (floornum % 4) * 4
+                tiley = (floornum // 4) * 4
+                dx, dy = tilePositions[state]
+                tilex += dx
+                tiley += dy
+                result[type_][pos] = tilex + tiley * 16
+            else:
+                print("Did not implement connections for %s yet" % type_)
+                result[type_] = {}
+                for pos in connections[type_]:
+                    result[pos] = 0
     # now do gates. if there are ANY fences on either side, it is connected.
     fencetypes = [x for x in posdicts if (x.startswith("fence") and x != "fence4")]
     type_ = "fence4"
@@ -281,7 +331,7 @@ def dump_building(building, save):
 
     return output
 
-def dump_feature(feature, save):
+def dump_feature(feature, save, connections):
     output = {
             'pos': dump_position(feature.pos),
         }
@@ -308,7 +358,7 @@ def dump_feature(feature, save):
 
     elif feature.type == 'Flooring':
         output['ts']  = useTilesheet("TerrainFeatures/Flooring", save)
-        output['idx'] = (feature.whichFloor%4)*4 + (feature.whichFloor//4)*64
+        output['idx'] = connections["floor%d" % feature.whichFloor][tuple(dump_position(feature.pos))]
 
     else:
         return None
@@ -382,13 +432,13 @@ def dump_location(location, save):
 
 
     if len(location.features) > 0:
-        output['features']   = [dump_feature  (f, save) for f in location.features  ]
+        output['features']   = [dump_feature(f, save, connections) for f in location.features  ]
 
     return output
 
 def dump_save(save):
     save.tilesheets = []
-
+    print(names)
     return {
             'date':      dump_date(save.date),
             'player':    dump_player(save.player, save),
