@@ -269,7 +269,7 @@ def dump_location(location, save):
                     'idx': 2
                 }
        
-        pos  = [24,10]
+        pos  = [25,10]
         size = [ 7, 6]
 
         # not sure if correct
