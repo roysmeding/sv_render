@@ -19,7 +19,7 @@ class Character(object):
         self.name = el.find('name').text
 
 class Item(object):
-    def __init__(self, el):
+    def __init__(self, el, connectables):
         self.name = el.find('Name').text
         self.type = el.get('{http://www.w3.org/2001/XMLSchema-instance}type')
         self.category     = int(el.find('category').text)
@@ -29,8 +29,15 @@ class Item(object):
 
         if self.type == 'Fence':
             self.whichType = int(el.find('whichType').text)
+            key = 'fence%d' % self.whichType
+            try:
+                position = (self.pos.x, self.pos.y)
+                connectables[key].append(position)
+            except:
+                connectables[key] = [position]
 
-        print(self.name, self.bigCraftable)
+
+        # print(self.name, self.bigCraftable)
 
 class Building(object):
     def __init__(self, el):
@@ -71,8 +78,9 @@ class Feature(object):
 class Location(object):
     def __init__(self, el):
         self.name       = el.find('name').text
+        self.connectables = {}
         self.characters = [Character(c) for c in el.findall('characters/NPC')]
-        self.items      = [Item(i)      for i in el.findall('objects/item/value/Object')]
+        self.items      = [Item(i, self.connectables)      for i in el.findall('objects/item/value/Object')]
         self.buildings  = [Building(b)  for b in el.findall('buildings/Building')]
         self.features   = [Feature(f)   for f in el.findall('terrainFeatures/item')]
 
@@ -118,6 +126,87 @@ class Save(object):
         self.player = Player(el.find('player'))
         self.locations = [Location(l) for l in el.findall('locations/GameLocation')]
 
+class SparsePositions:
+    def __init__(self):
+        self.positions = set()
+
+    def get(self, xy):
+        if xy in self.positions:
+            return True
+        return False
+
+    def add(self, xy):
+        self.positions.add(xy)
+
+def getAny(posdicts, possiblekeys, xy):
+    # if any of the posdicts has xy, return true
+    for k in possiblekeys:
+        if posdicts[k].get(xy):
+            return True
+    return False
+
+def calculateConnectables(connectables):
+    result = {}
+    posdicts = {} # save for gate logic.
+    for type_ in connectables:
+        if type_ == "fence4": 
+            continue # fence4 is a gate. special code to handle.
+        result[type_] = {} # dictionary of position to index.
+        positions = connectables[type_] # array of all positions each connectable obj is at
+        posdict = SparsePositions()
+        posdicts[type_] = posdict
+        if type_.startswith("fence"):
+            # first build the lookup table
+            for pos in positions:
+                posdict.add(pos)
+            # next, check connections.
+            for pos in positions:
+                x, y = pos
+                hasUp = posdict.get((x, y-1))
+                hasLeft = posdict.get((x-1, y))
+                hasRight = posdict.get((x+1, y))
+                if hasLeft and hasRight:
+                    # surprising, game does not care about up connections in this case
+                    result[type_][pos] = 7
+                elif hasUp:
+                    if hasLeft:
+                        result[type_][pos] = 8
+                    elif hasRight:
+                        result[type_][pos] = 6
+                    else:
+                        result[type_][pos] = 3
+                else:
+                    # no up, and not both left & right
+                    if hasLeft:
+                        result[type_][pos] = 2
+                    elif hasRight:
+                        result[type_][pos] = 0
+                    else:
+                        result[type_][pos] = 5
+
+        else:
+            print("Did not implement connections for %s yet" % type_)
+            result[type_] = {}
+            for pos in connections[type_]:
+                result[pos] = 0
+    # now do gates. if there are ANY fences on either side, it is connected.
+    fencetypes = [x for x in posdicts if (x.startswith("fence") and x != "fence4")]
+    type_ = "fence4"
+    result[type_] = {}
+    if "fence4" in connectables:
+        for pos in connectables[type_]:
+            x, y = pos
+            hasUp = getAny(posdicts, fencetypes, (x, y-1))
+            hasDown = getAny(posdicts, fencetypes, (x, y+1))
+            hasLeft = getAny(posdicts, fencetypes, (x-1, y))
+            hasRight = getAny(posdicts, fencetypes, (x+1, y))
+            result[type_][pos] = 17 # defualt unconnected
+            if hasDown and hasUp and not hasLeft and not hasRight:
+                result[type_][pos] = 16
+            elif not hasDown and not hasUp and hasLeft and hasRight:
+                result[type_][pos] = 12
+            result[type_][pos] = 17 # because weird widths
+    return result
 
 def dump_date(date):
     return str(date)
@@ -160,7 +249,7 @@ def dump_character(character, save):
 
     return output
 
-def dump_item(item, save):
+def dump_item(item, save, connections):
     output = {
             'name': item.name,
             'pos': dump_position(item.pos)
@@ -172,7 +261,7 @@ def dump_item(item, save):
 
     elif item.type == 'Fence':
         output['ts']  = useTilesheet('LooseSprites/Fence{:d}'.format(item.whichType), save)
-        output['idx'] = 0   # TODO
+        output['idx'] = connections["fence%d" % item.whichType][tuple(dump_position(item.pos))]
 
     else:
         output['ts']  = useTilesheet('Maps/springobjects', save)
@@ -231,12 +320,12 @@ def dump_location(location, save):
     output = {
             'name': location.name
         }
-
+    connections = calculateConnectables(location.connectables)
     if len(location.characters) > 0:
-        output['characters'] = [dump_character(c, save) for c in location.characters]
+        output['characters'] = [dump_character(c, save)         for c in location.characters]
 
     if len(location.items) > 0:
-        output['items']      = [dump_item     (i, save) for i in location.items     ]
+        output['items']      = [dump_item(i, save, connections) for i in location.items     ]
 
     output['buildings']  = [dump_building (b, save) for b in location.buildings ]
 

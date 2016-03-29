@@ -189,8 +189,6 @@ function loadTilesheet(src) {
 		return;
 	}
 
-	console.log("Loading tilesheet '"+src+"'");
-
 	let ts = new Object();
 	ts.src = src;
 	ts.loaded = false;
