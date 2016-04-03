@@ -1,0 +1,6 @@
+{
+	"src":     "TerrainFeatures/tree2_fall",
+	"img_src": "TerrainFeatures/tree2_fall.png",
+	"sheet_size": [ 3, 10 ],
+	"tile_size":  [ 16, 16 ]
+}

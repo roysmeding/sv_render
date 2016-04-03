@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Wizard",
+	"img_src":    "Characters/Wizard.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

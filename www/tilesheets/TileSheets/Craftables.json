@@ -1,0 +1,6 @@
+{
+	"src":     "TileSheets/Craftables",
+	"img_src": "TileSheets/Craftables.png",
+	"sheet_size": [  8, 22 ],
+	"tile_size":  [ 16, 32 ]
+}

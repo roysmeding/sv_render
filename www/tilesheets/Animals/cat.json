@@ -1,0 +1,6 @@
+{
+	"src":        "Animals/cat",
+	"img_src":    "Animals/cat.png",
+	"sheet_size": [	 4,  8 ],
+	"tile_size":  [ 32, 32 ]
+}

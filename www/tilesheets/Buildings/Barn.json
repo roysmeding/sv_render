@@ -1,0 +1,6 @@
+{
+	"src":     "Buildings/Barn",
+	"img_src": "Buildings/Barn.png",
+	"sheet_size": [   1,   1 ],
+	"tile_size":  [ 112, 112 ]
+}

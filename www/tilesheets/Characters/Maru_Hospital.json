@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Maru_Hospital",
+	"img_src":    "Characters/Maru_Hospital.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

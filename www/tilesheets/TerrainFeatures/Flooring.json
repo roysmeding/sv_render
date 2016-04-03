@@ -1,0 +1,6 @@
+{
+	"src":     "TerrainFeatures/Flooring",
+	"img_src": "TerrainFeatures/Flooring.png",
+	"sheet_size": [ 16, 16 ],
+	"tile_size":  [ 16, 16 ]
+}

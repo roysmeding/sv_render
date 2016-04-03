@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Krobus",
+	"img_src":    "Characters/Krobus.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/LeahExFemale",
+	"img_src":    "Characters/LeahExFemale.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

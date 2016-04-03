@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Mariner",
+	"img_src":    "Characters/Mariner.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

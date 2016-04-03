@@ -1,0 +1,6 @@
+{
+	"src":     "TerrainFeatures/grass",
+	"img_src": "TerrainFeatures/grass.png",
+	"sheet_size": [  3,  6 ],
+	"tile_size":  [ 15, 20 ]
+}

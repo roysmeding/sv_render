@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Mayor",
+	"img_src":    "Characters/Mayor.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

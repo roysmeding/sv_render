@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Bouncer",
+	"img_src":    "Characters/Bouncer.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

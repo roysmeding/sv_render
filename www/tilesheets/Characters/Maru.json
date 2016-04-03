@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Maru",
+	"img_src":    "Characters/Maru.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

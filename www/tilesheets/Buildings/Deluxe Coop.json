@@ -1,0 +1,6 @@
+{
+	"src":     "Buildings/Deluxe Coop",
+	"img_src": "Buildings/Deluxe Coop.png",
+	"sheet_size": [   1,   1 ],
+	"tile_size":  [  96, 112 ]
+}

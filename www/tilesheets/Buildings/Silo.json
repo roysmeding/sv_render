@@ -1,0 +1,6 @@
+{
+	"src":     "Buildings/Silo",
+	"img_src": "Buildings/Silo.png",
+	"sheet_size": [  1,   1 ],
+	"tile_size":  [ 48, 128 ]
+}

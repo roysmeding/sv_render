@@ -1,0 +1,14 @@
+{
+	"properties": {
+		"@TileIndex@1@PathType":"SE",
+		"@TileIndex@2@PathType":"WS",
+		"@TileIndex@3@PathType":"WN",
+		"@TileIndex@0@PathType":"NE",
+		"@TileIndex@7@PathType":"End",
+		"@TileIndex@4@PathType":"Crossroad"
+	},
+	"src":"paths",
+	"img_src":"paths.png",
+	"sheet_size": [	 4,  8 ],
+	"tile_size":  [ 16, 16 ]
+}

@@ -1,0 +1,6 @@
+{
+	"src":        "Animals/horse",
+	"img_src":    "Animals/horse.png",
+	"sheet_size": [	 7,  4 ],
+	"tile_size":  [ 32, 32 ]
+}

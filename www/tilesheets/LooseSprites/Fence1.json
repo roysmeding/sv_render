@@ -1,0 +1,6 @@
+{
+	"src":     "LooseSprites/Fence1",
+	"img_src": "LooseSprites/Fence1.png",
+	"sheet_size": [  3,  6 ],
+	"tile_size":  [ 16, 32 ]
+}

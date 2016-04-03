@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Dwarf",
+	"img_src":    "Characters/Dwarf.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

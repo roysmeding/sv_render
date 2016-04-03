@@ -1,0 +1,6 @@
+{
+	"src":     "TerrainFeatures/tree7_summer",
+	"img_src": "TerrainFeatures/tree7_summer.png",
+	"sheet_size": [ 3, 10 ],
+	"tile_size":  [ 16, 16 ]
+}

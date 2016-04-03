@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/robot",
+	"img_src":    "Characters/robot.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}
