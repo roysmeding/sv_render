@@ -113,19 +113,14 @@ class ResourceClump:
         self.idx = int(el.find('parentSheetIndex').text)
 
     def dump(self, save):
-        outputs = []
-        spriteX = self.idx %  24
-        spriteY = self.idx // 24
-        for w in range(self.tilesWide):
-            for h in range(self.tilesHigh):
-                output = {
-                    'pos': [self.pos.x + w, self.pos.y + h],
-                    'name': 'resourceclump'
-                }
-                output['ts'] = useTilesheet('Maps/springobjects', save)
-                output['idx'] = (spriteX + w) + (spriteY + h) * 24
-                outputs.append(output)
-        return outputs
+        output = {
+            'pos': dump_position(self.pos),
+            'name': 'resourceclump'
+        }
+        output['ts'] = useTilesheet('Maps/springobjects', save)
+        output['idx'] = self.idx
+        output['tileSize'] = [16 * self.tilesWide, 16 * self.tilesHigh]
+        return output
 
 names = set()
 class Feature(object):
@@ -163,22 +158,37 @@ class Feature(object):
         output = {
             'pos': dump_position(self.pos),
             }
+        outputs = [output]
 
         # TODO
         if   self.type == 'Tree':
-            output['ts']  = useTilesheet("TerrainFeatures/tree{:d}_{:s}".format(self.treeType, save.date.season), save)
-            if   self.stump:
-                output['idx'] = 3
-            elif self.growthStage == 0:
-                output['idx'] = 6
-            elif self.growthStage == 1:
-                output['idx'] = 4
-            elif self.growthStage == 2:
-                output['idx'] = 5
-            elif self.growthStage == 3:
-                output['idx'] = 1
+            ts = useTilesheet("TerrainFeatures/tree{:d}_{:s}".format(self.treeType, save.date.season), save)
+            output['ts']  = ts
+            if self.stump:
+                output['idx'] = 20
+                output['tileSize'] = [16, 32]
+                output['offset'] = [0, 0]
+            elif self.growthStage in [0, 1, 2]:
+                if self.growthStage == 0:
+                    output['idx'] = 26
+                elif self.growthStage == 1:
+                    output['idx'] = 24
+                elif self.growthStage == 2:
+                    output['idx'] = 25
+            elif self.growthStage in [3, 4]:
+                output['tileSize'] = [16, 32]
+                output['offset'] = [0, 0]
+                output['idx'] = 18
             else:
+                output['tileSize'] = [48, 96]
+                output['offset'] = [-16, 0]
                 output['idx'] = 0
+                # also add a stump.
+                outputs.append({
+                        'ts': ts,
+                        'idx': 27,
+                        "pos": dump_position(self.pos)
+                    })
 
         elif self.type == 'Grass':
             output['ts']  = useTilesheet("TerrainFeatures/grass", save)
@@ -189,9 +199,8 @@ class Feature(object):
             output['idx'] = connections["floor%d" % self.whichFloor][tuple(dump_position(self.pos))]
 
         else:
-            return None
-
-        return output
+            return []
+        return outputs
 
 class Location(object):
     def __init__(self, el):
@@ -210,9 +219,6 @@ class Location(object):
         connections = calculateConnectables(self.connectables)
         output['characters'] = [c.dump(save) for c in self.characters]
         output['items'] = [i.dump(save, connections) for i in self.items]
-        for rc in self.resourceclumps:
-            for o in rc.dump(save):
-                output['items'].append(o)
         output['buildings']  = [b.dump(save) for b in self.buildings ]
 
         if self.name == 'Farm':
@@ -267,8 +273,11 @@ class Location(object):
             output['buildings'].append(house)
             output['buildings'].append(greenhouse)
 
-        output['features']   = [f.dump(save, connections) for f in self.features  ]
-
+        output['features']   = []
+        for f in self.features:
+            output['features'].extend(f.dump(save, connections))
+        for rc in self.resourceclumps:
+            output['features'].append(rc.dump(save))
         return output
 
 class Date(object):
