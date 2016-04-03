@@ -18,7 +18,7 @@ save_file = saves.Save.load(save_filename)
 
 # dump save
 print("Dumping save...")
-save_dump = saves.dump_save(save_file)
+save_dump = save_file.dump()
 
 # write save
 print("Writing JSON...")

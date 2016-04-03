@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Sandy",
+	"img_src":    "Characters/Sandy.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

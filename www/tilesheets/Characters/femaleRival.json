@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/femaleRival",
+	"img_src":    "Characters/femaleRival.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

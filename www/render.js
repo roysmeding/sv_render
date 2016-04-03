@@ -48,6 +48,7 @@ function drawTile(ctx, tile, col, row) {
 	let ts = renderer.tilesheets[tile.ts];
 
 	let sx, sy, w, h;
+	let offsetX = 0, offsetY = 0;
 
 	if(ts.sprites) {
 		let sprite = ts.sprites[tile.idx];
@@ -59,17 +60,27 @@ function drawTile(ctx, tile, col, row) {
 		let scol =            tile.idx % ts.sheet_size[0],
 		    srow = Math.floor(tile.idx / ts.sheet_size[0]);
 
-		w  = ts.tile_size[0];
-		h  = ts.tile_size[1];
+	    if ("tileSize" in tile) {
+	    	w = tile.tileSize[0];
+	    	h = tile.tileSize[1];
+	    } else {
+			w  = ts.tile_size[0];
+			h  = ts.tile_size[1];
+	    }
 
-		sx = scol*w;
-		sy = srow*h;
+	    if ("offset" in tile) {
+	    	offsetX = tile.offset[0];
+	    	offsetY = tile.offset[1];
+	    }
+
+		sx = scol*ts.tile_size[0];
+		sy = srow*ts.tile_size[1];
 	}
 
 	let dx = col*TILE_WIDTH,
 	    dy = row*TILE_HEIGHT - (h -   TILE_HEIGHT);
 
-	ctx.drawImage(ts.img, sx, sy, w, h, dx, dy, w, h);
+	ctx.drawImage(ts.img, sx, sy, w, h, dx + offsetX, dy + offsetY, w, h);
 }
 
 function redrawLayer(layer) {
@@ -322,6 +333,12 @@ function saveLoaded() {
 		obj.ts  = r_save.tilesheets[feature.ts];
 		obj.idx = feature.idx;
 		obj.pos = feature.pos;
+		if ("tileSize" in feature) {
+			obj.tileSize = feature.tileSize;
+		}
+		if ("offset" in feature) {
+			obj.offset = feature.offset;
+		}
 
 		renderer.map.objects.push(obj);
 	}

@@ -1,0 +1,6 @@
+{
+	"src":     "Buildings/Deluxe Barn",
+	"img_src": "Buildings/Deluxe Barn.png",
+	"sheet_size": [   1,   1 ],
+	"tile_size":  [ 112, 112 ]
+}

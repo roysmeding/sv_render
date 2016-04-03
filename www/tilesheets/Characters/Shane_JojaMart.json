@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Shane_JojaMart",
+	"img_src":    "Characters/Shane_JojaMart.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

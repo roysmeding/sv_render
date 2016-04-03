@@ -1,0 +1,6 @@
+{
+	"src":     "Maps/springobjects",
+	"img_src": "Maps/springobjects.png",
+	"sheet_size": [ 24, 33 ],
+	"tile_size":  [ 16, 16 ]
+}

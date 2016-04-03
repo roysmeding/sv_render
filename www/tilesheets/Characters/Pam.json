@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Pam",
+	"img_src":    "Characters/Pam.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

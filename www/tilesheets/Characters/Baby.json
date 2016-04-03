@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Baby",
+	"img_src":    "Characters/Baby.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/shadowbeast",
+	"img_src":    "Characters/shadowbeast.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

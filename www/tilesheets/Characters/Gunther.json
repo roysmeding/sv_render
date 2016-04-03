@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Gunther",
+	"img_src":    "Characters/Gunther.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}

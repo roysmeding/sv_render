@@ -1,0 +1,6 @@
+{
+	"src":        "Characters/Evelyn",
+	"img_src":    "Characters/Evelyn.png",
+	"sheet_size": [	 4, 13 ],
+	"tile_size":  [ 16, 16 ]
+}
