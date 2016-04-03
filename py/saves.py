@@ -102,6 +102,31 @@ class Building(object):
 
         return output
 
+class ResourceClump:
+    def __init__(self, el):
+        self.pos = Position(
+                int(el.find('tile/X').text),
+                int(el.find('tile/Y').text)
+            )
+        self.tilesWide = int(el.find('width').text)
+        self.tilesHigh = int(el.find('height').text)
+        self.idx = int(el.find('parentSheetIndex').text)
+
+    def dump(self, save):
+        outputs = []
+        spriteX = self.idx %  24
+        spriteY = self.idx // 24
+        for w in range(self.tilesWide):
+            for h in range(self.tilesHigh):
+                output = {
+                    'pos': [self.pos.x + w, self.pos.y + h],
+                    'name': 'resourceclump'
+                }
+                output['ts'] = useTilesheet('Maps/springobjects', save)
+                output['idx'] = (spriteX + w) + (spriteY + h) * 24
+                outputs.append(output)
+        return outputs
+
 names = set()
 class Feature(object):
     def __init__(self, el, connectables):
@@ -168,17 +193,14 @@ class Feature(object):
 
         return output
 
-class ResourceClump:
-    def __init__(self, el):
-        pass
-
 class Location(object):
     def __init__(self, el):
         self.name       = el.find('name').text
         self.connectables = {}
         self.characters = [Character(c) for c in el.findall('characters/NPC')]
-        self.items      = [Item(i, self.connectables)      for i in el.findall('objects/item/value/Object')]
+        self.items      = [Item(i, self.connectables) for i in el.findall('objects/item/value/Object')]
         self.buildings  = [Building(b)  for b in el.findall('buildings/Building')]
+        self.resourceclumps = [ResourceClump(rc) for rc in el.findall('resourceClumps/ResourceClump')]
         self.features   = [Feature(f, self.connectables)   for f in el.findall('terrainFeatures/item')]
 
     def dump(self, save):
@@ -186,12 +208,11 @@ class Location(object):
                 'name': self.name
             }
         connections = calculateConnectables(self.connectables)
-        if len(self.characters) > 0:
-            output['characters'] = [c.dump(save) for c in self.characters]
-
-        if len(self.items) > 0:
-            output['items'] = [i.dump(save, connections) for i in self.items]
-
+        output['characters'] = [c.dump(save) for c in self.characters]
+        output['items'] = [i.dump(save, connections) for i in self.items]
+        for rc in self.resourceclumps:
+            for o in rc.dump(save):
+                output['items'].append(o)
         output['buildings']  = [b.dump(save) for b in self.buildings ]
 
         if self.name == 'Farm':
@@ -246,9 +267,7 @@ class Location(object):
             output['buildings'].append(house)
             output['buildings'].append(greenhouse)
 
-
-        if len(self.features) > 0:
-            output['features']   = [f.dump(save, connections) for f in self.features  ]
+        output['features']   = [f.dump(save, connections) for f in self.features  ]
 
         return output
 
