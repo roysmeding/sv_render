@@ -366,8 +366,8 @@ def getAny(posdicts, possiblekeys, xy):
 # up, down, left, right
 tilePositions = {
     0b0000: (0, 0),
-    0b0001: (3, 3),
-    0b0010: (1, 3),
+    0b0001: (1, 3),
+    0b0010: (3, 3),
     0b0011: (2, 3),
     0b0100: (0, 1),
     0b0101: (1, 0),
