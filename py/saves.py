@@ -18,6 +18,27 @@ class Character(object):
         self.pos  = Position.fromElement(el.find('Position'))
         self.name = el.find('name').text
 
+    def dump(self, save):
+        output = {
+                'name': self.name,
+                'pos':  dump_position(self.pos)
+            }
+
+        # determine tilesheet and index
+        if   self.type == 'Cat':
+            ts = 'Animals/cat'
+        elif self.type == 'Dog':
+            ts = 'Animals/dog'
+        elif self.type == 'Horse':
+            ts = 'Animals/horse'
+        else:
+            ts = 'Characters/'+self.name
+            
+        output['ts']  = useTilesheet(ts, save)
+        output['idx'] = 0
+
+        return output
+
 class Item(object):
     def __init__(self, el, connectables):
         self.name = el.find('Name').text
@@ -38,6 +59,25 @@ class Item(object):
 
 
         # print(self.name, self.bigCraftable)
+    def dump(self, save, connections):
+        output = {
+                'name': self.name,
+                'pos': dump_position(self.pos)
+            }
+
+        if   self.bigCraftable:
+            output['ts']  = useTilesheet('TileSheets/Craftables', save)
+            output['idx'] = self.sheetIndex
+
+        elif self.type == 'Fence':
+            output['ts']  = useTilesheet('LooseSprites/Fence{:d}'.format(self.whichType), save)
+            output['idx'] = connections["fence%d" % self.whichType][tuple(dump_position(self.pos))]
+
+        else:
+            output['ts']  = useTilesheet('Maps/springobjects', save)
+            output['idx'] = self.sheetIndex
+
+        return output
 
 class Building(object):
     def __init__(self, el):
@@ -49,6 +89,18 @@ class Building(object):
 
         self.tilesWide = int(el.find('tilesWide').text)
         self.tilesHigh = int(el.find('tilesHigh').text)
+
+    def dump(self, save):
+        output = {
+                'pos':  dump_position(self.pos),
+                'size': [ self.tilesWide, self.tilesHigh ],
+                'type': self.type
+            }
+
+        output['ts']  = useTilesheet('Buildings/'+self.type, save)
+        output['idx'] = 0
+
+        return output
 
 names = set()
 class Feature(object):
@@ -82,6 +134,44 @@ class Feature(object):
         else:
             print("Unhandled terrain feature type {}".format(self.type))
 
+    def dump(self, save, connections):
+        output = {
+            'pos': dump_position(self.pos),
+            }
+
+        # TODO
+        if   self.type == 'Tree':
+            output['ts']  = useTilesheet("TerrainFeatures/tree{:d}_{:s}".format(self.treeType, save.date.season), save)
+            if   self.stump:
+                output['idx'] = 3
+            elif self.growthStage == 0:
+                output['idx'] = 6
+            elif self.growthStage == 1:
+                output['idx'] = 4
+            elif self.growthStage == 2:
+                output['idx'] = 5
+            elif self.growthStage == 3:
+                output['idx'] = 1
+            else:
+                output['idx'] = 0
+
+        elif self.type == 'Grass':
+            output['ts']  = useTilesheet("TerrainFeatures/grass", save)
+            output['idx'] = self.grassType*3
+
+        elif self.type == 'Flooring':
+            output['ts']  = useTilesheet("TerrainFeatures/Flooring", save)
+            output['idx'] = connections["floor%d" % self.whichFloor][tuple(dump_position(self.pos))]
+
+        else:
+            return None
+
+        return output
+
+class ResourceClump:
+    def __init__(self, el):
+        pass
+
 class Location(object):
     def __init__(self, el):
         self.name       = el.find('name').text
@@ -90,6 +180,77 @@ class Location(object):
         self.items      = [Item(i, self.connectables)      for i in el.findall('objects/item/value/Object')]
         self.buildings  = [Building(b)  for b in el.findall('buildings/Building')]
         self.features   = [Feature(f, self.connectables)   for f in el.findall('terrainFeatures/item')]
+
+    def dump(self, save):
+        output = {
+                'name': self.name
+            }
+        connections = calculateConnectables(self.connectables)
+        if len(self.characters) > 0:
+            output['characters'] = [c.dump(save) for c in self.characters]
+
+        if len(self.items) > 0:
+            output['items'] = [i.dump(save, connections) for i in self.items]
+
+        output['buildings']  = [b.dump(save) for b in self.buildings ]
+
+        if self.name == 'Farm':
+            ts   = useTilesheet("Buildings/houses", save),
+            pos  = [58,12]
+            size = [10, 5]
+
+            if   save.player.houseUpgradeLevel == 0:
+                house = {
+                        'ts':   ts,
+                        'pos':  pos,
+                        'size': size,
+                        'idx':  0
+                    }
+
+            elif save.player.houseUpgradeLevel == 1:
+                house = {
+                        'ts':  ts,
+                        'pos': pos,
+                        'size': size,
+                        'idx': 1
+                    }
+
+            elif save.player.houseUpgradeLevel == 2:
+                house = {
+                        'ts':  ts,
+                        'pos': pos,
+                        'size': size,
+                        'idx': 2
+                    }
+           
+            pos  = [25,10]
+            size = [ 7, 6]
+
+            # not sure if correct
+            # not correct
+            if   save.player.hasGreenhouse:
+                greenhouse = {
+                        'ts':  ts,
+                        'pos': pos,
+                        'size': size,
+                        'idx': 4
+                    }
+            else:
+                greenhouse = {
+                        'ts':  ts,
+                        'pos': pos,
+                        'size': size,
+                        'idx': 3
+                    }
+
+            output['buildings'].append(house)
+            output['buildings'].append(greenhouse)
+
+
+        if len(self.features) > 0:
+            output['features']   = [f.dump(save, connections) for f in self.features  ]
+
+        return output
 
 class Date(object):
     def __init__(self, year, season, day):
@@ -109,12 +270,21 @@ class Date(object):
                 self.year
             )
 
+    def dump(self):
+        return str(self)
+
 class Player(object):
     def __init__(self, el):
         self.name              = el.find('name').text
         self.farmName          = el.find('farmName').text + ' Farm'
         self.houseUpgradeLevel = int(el.find('houseUpgradeLevel').text)
         self.hasGreenhouse     = el.find('hasGreenhouse').text == 'true'
+
+    def dump(self, save):
+        return {
+            'name':     self.name,
+            'farmName': self.farmName
+        }
 
 class Save(object):
     @staticmethod
@@ -132,6 +302,17 @@ class Save(object):
 
         self.player = Player(el.find('player'))
         self.locations = [Location(l) for l in el.findall('locations/GameLocation')]
+
+    def dump(self):
+        self.tilesheets = []
+        print(names)
+        return {
+                'date':      self.date.dump(),
+                'player':    self.player.dump(self),
+                'locations': [l.dump(self) for l in self.locations],
+                'tilesheets': self.tilesheets
+            }
+
 
 class SparsePositions:
     def __init__(self):
@@ -258,9 +439,6 @@ def calculateConnectables(connectables):
             result[type_][pos] = 17 # because weird widths
     return result
 
-def dump_date(date):
-    return str(date)
-
 def dump_position(pos):
     return [ pos.x, pos.y ]
 
@@ -271,177 +449,3 @@ def useTilesheet(filename, save):
     else:
         save.tilesheets.append(filename)
         return len(save.tilesheets)-1
-
-def dump_player(player, save):
-    return {
-            'name':     player.name,
-            'farmName': player.farmName
-        }
-
-def dump_character(character, save):
-    output = {
-            'name': character.name,
-            'pos':  dump_position(character.pos)
-        }
-
-    # determine tilesheet and index
-    if   character.type == 'Cat':
-        ts = 'Animals/cat'
-    elif character.type == 'Dog':
-        ts = 'Animals/dog'
-    elif character.type == 'Horse':
-        ts = 'Animals/horse'
-    else:
-        ts = 'Characters/'+character.name
-        
-    output['ts']  = useTilesheet(ts, save)
-    output['idx'] = 0
-
-    return output
-
-def dump_item(item, save, connections):
-    output = {
-            'name': item.name,
-            'pos': dump_position(item.pos)
-        }
-
-    if   item.bigCraftable:
-        output['ts']  = useTilesheet('TileSheets/Craftables', save)
-        output['idx'] = item.sheetIndex
-
-    elif item.type == 'Fence':
-        output['ts']  = useTilesheet('LooseSprites/Fence{:d}'.format(item.whichType), save)
-        output['idx'] = connections["fence%d" % item.whichType][tuple(dump_position(item.pos))]
-
-    else:
-        output['ts']  = useTilesheet('Maps/springobjects', save)
-        output['idx'] = item.sheetIndex
-
-    return output
-
-def dump_building(building, save):
-    output = {
-            'pos':  dump_position(building.pos),
-            'size': [ building.tilesWide, building.tilesHigh ],
-            'type': building.type
-        }
-
-    output['ts']  = useTilesheet('Buildings/'+building.type, save)
-    output['idx'] = 0
-
-    return output
-
-def dump_feature(feature, save, connections):
-    output = {
-            'pos': dump_position(feature.pos),
-        }
-
-    # TODO
-    if   feature.type == 'Tree':
-        output['ts']  = useTilesheet("TerrainFeatures/tree{:d}_{:s}".format(feature.treeType, save.date.season), save)
-        if   feature.stump:
-            output['idx'] = 3
-        elif feature.growthStage == 0:
-            output['idx'] = 6
-        elif feature.growthStage == 1:
-            output['idx'] = 4
-        elif feature.growthStage == 2:
-            output['idx'] = 5
-        elif feature.growthStage == 3:
-            output['idx'] = 1
-        else:
-            output['idx'] = 0
-
-    elif feature.type == 'Grass':
-        output['ts']  = useTilesheet("TerrainFeatures/grass", save)
-        output['idx'] = feature.grassType*3
-
-    elif feature.type == 'Flooring':
-        output['ts']  = useTilesheet("TerrainFeatures/Flooring", save)
-        output['idx'] = connections["floor%d" % feature.whichFloor][tuple(dump_position(feature.pos))]
-
-    else:
-        return None
-
-    return output
-
-
-def dump_location(location, save):
-    output = {
-            'name': location.name
-        }
-    connections = calculateConnectables(location.connectables)
-    if len(location.characters) > 0:
-        output['characters'] = [dump_character(c, save)         for c in location.characters]
-
-    if len(location.items) > 0:
-        output['items']      = [dump_item(i, save, connections) for i in location.items     ]
-
-    output['buildings']  = [dump_building (b, save) for b in location.buildings ]
-
-    if location.name == 'Farm':
-        ts   = useTilesheet("Buildings/houses", save),
-        pos  = [58,12]
-        size = [10, 5]
-
-        if   save.player.houseUpgradeLevel == 0:
-            house = {
-                    'ts':   ts,
-                    'pos':  pos,
-                    'size': size,
-                    'idx':  0
-                }
-
-        elif save.player.houseUpgradeLevel == 1:
-            house = {
-                    'ts':  ts,
-                    'pos': pos,
-                    'size': size,
-                    'idx': 1
-                }
-
-        elif save.player.houseUpgradeLevel == 2:
-            house = {
-                    'ts':  ts,
-                    'pos': pos,
-                    'size': size,
-                    'idx': 2
-                }
-       
-        pos  = [25,10]
-        size = [ 7, 6]
-
-        # not sure if correct
-        if   save.player.hasGreenhouse:
-            greenhouse = {
-                    'ts':  ts,
-                    'pos': pos,
-                    'size': size,
-                    'idx': 4
-                }
-        else:
-            greenhouse = {
-                    'ts':  ts,
-                    'pos': pos,
-                    'size': size,
-                    'idx': 3
-                }
-
-        output['buildings'].append(house)
-        output['buildings'].append(greenhouse)
-
-
-    if len(location.features) > 0:
-        output['features']   = [dump_feature(f, save, connections) for f in location.features  ]
-
-    return output
-
-def dump_save(save):
-    save.tilesheets = []
-    print(names)
-    return {
-            'date':      dump_date(save.date),
-            'player':    dump_player(save.player, save),
-            'locations': [dump_location(l, save) for l in save.locations],
-            'tilesheets': save.tilesheets
-        }
