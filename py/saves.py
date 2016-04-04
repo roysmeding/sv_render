@@ -150,7 +150,21 @@ class Feature(object):
                 connectables[key].append(position)
             except:
                 connectables[key] = [position]
-
+        elif self.type == "HoeDirt":
+            self.fertilizer = int(feat.find('fertilizer').text)
+            self.state = int(feat.find('state').text)
+            position = tuple(dump_position(self.pos))
+            # hoedirt is added to both if wet, and only the dry one if dry.
+            # wet hoedirt is then overlapped with dry hoedirtposition = (self.pos.x, self.pos.y)
+            try:
+                connectables["hoedirt0"].append(position)
+            except:
+                connectables["hoedirt0"] = [position]
+            if self.state == 1:
+                try:
+                    connectables["hoedirt1"].append(position)
+                except:
+                    connectables["hoedirt1"] = [position]
         else:
             print("Unhandled terrain feature type {}".format(self.type))
 
@@ -198,6 +212,17 @@ class Feature(object):
             output['ts']  = useTilesheet("TerrainFeatures/Flooring", save)
             output['idx'] = connections["floor%d" % self.whichFloor][tuple(dump_position(self.pos))]
 
+        elif self.type == 'HoeDirt':
+            output['ts'] = useTilesheet("TerrainFeatures/hoeDirt", save)
+            idx = connections["hoedirt0"][tuple(dump_position(self.pos))]
+            output['idx'] = idx
+            # if dirt is wet, add the wet dirt on top of the dry dirt.
+            if self.state == 1:
+                outputs.append({
+                        'pos': dump_position(self.pos),
+                        'ts' : useTilesheet("TerrainFeatures/hoeDirt", save),
+                        'idx': connections["hoedirt1"][tuple(dump_position(self.pos))]
+                    })
         else:
             return []
         return outputs
@@ -392,7 +417,6 @@ def calculateConnectables(connectables):
         result[type_] = {} # dictionary of position to index.
         positions = connectables[type_] # array of all positions each connectable obj is at
         posdict = SparsePositions()
-        posdicts[type_] = posdict
         # first build the lookup table
         for pos in positions:
             posdict.add(pos)
@@ -405,6 +429,7 @@ def calculateConnectables(connectables):
             hasDown = posdict.get((x, y+1))
 
             if type_.startswith("fence"):
+                posdicts[type_] = posdict
                 if hasLeft and hasRight:
                     # surprising, game does not care about up connections in this case
                     result[type_][pos] = 7
@@ -443,6 +468,23 @@ def calculateConnectables(connectables):
                 tilex += dx
                 tiley += dy
                 result[type_][pos] = tilex + tiley * 16
+            elif type_.startswith("hoedirt"):
+                # represent state as one number for convenience
+                state = 0
+                if hasUp:
+                    state += 8
+                if hasDown:
+                    state += 4
+                if hasLeft:
+                    state += 2
+                if hasRight:
+                    state += 1
+                dirtnum = int(type_[7:])
+                tilex, tiley = 4 * dirtnum, 0
+                dx, dy = tilePositions[state]
+                tilex += dx
+                tiley += dy
+                result[type_][pos] = tilex + tiley * 8
             else:
                 print("Did not implement connections for %s yet" % type_)
                 result[type_] = {}
