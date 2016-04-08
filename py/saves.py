@@ -123,6 +123,12 @@ class ResourceClump:
         return output
 
 names = set()
+grassseasons = {
+    "spring": 0,
+    "summer": 1,
+    "fall": 2,
+    "winter": 3
+}
 class Feature(object):
     def __init__(self, el, connectables):
         self.pos = Position.fromElement(el.find('key/Vector2'))
@@ -206,7 +212,8 @@ class Feature(object):
 
         elif self.type == 'Grass':
             output['ts']  = useTilesheet("TerrainFeatures/grass", save)
-            output['idx'] = self.grassType*3
+            output['idx'] = grassseasons[save.date.season]*3
+            output['isGrass'] = True
 
         elif self.type == 'Flooring':
             output['ts']  = useTilesheet("TerrainFeatures/Flooring", save)

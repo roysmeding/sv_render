@@ -44,6 +44,10 @@ function checkLoaded() {
 	renderer.has_loaded = true;
 }
 
+const GRASSTABLE = [[-TILE_WIDTH/2, 0],
+				  [0,-TILE_HEIGHT/2],
+				  [TILE_WIDTH/2,  0],
+				  [0, TILE_WIDTH/2]];
 function drawTile(ctx, tile, col, row) {
 	let ts = renderer.tilesheets[tile.ts];
 
@@ -81,6 +85,18 @@ function drawTile(ctx, tile, col, row) {
 	    dy = row*TILE_HEIGHT - (h -   TILE_HEIGHT);
 
 	ctx.drawImage(ts.img, sx, sy, w, h, dx + offsetX, dy + offsetY, w, h);
+	if (tile.isGrass) {
+		// draw four more sprites in randomly perturbed area nearby.
+		for (let i = 0; i < 4; i++) {
+			let new_sx = sx + Math.floor(Math.random() * 3) * ts.tile_size[0];
+			let offsetX2 = GRASSTABLE[i][0] + Math.floor(Math.random() * TILE_WIDTH/2 - TILE_WIDTH/4);
+			let offsetY2 = GRASSTABLE[i][1] + Math.floor(Math.random() * TILE_WIDTH/2 - TILE_WIDTH/4);
+			ctx.drawImage(ts.img, new_sx, sy, w, h
+				, dx + offsetX + offsetX2
+				, dy + offsetY + offsetY2
+				, w, h);
+		}
+	}
 }
 
 function redrawLayer(layer) {
@@ -338,6 +354,9 @@ function saveLoaded() {
 		}
 		if ("offset" in feature) {
 			obj.offset = feature.offset;
+		}
+		if ("isGrass" in feature) {
+			obj.isGrass = true;
 		}
 
 		renderer.map.objects.push(obj);
